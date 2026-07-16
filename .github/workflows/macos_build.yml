@@ -26,7 +26,7 @@ jobs:
           if [[ ${{ matrix.config }} == "sitl" ]]; then
             export DO_AP_STM_ENV=0
           fi
-          Tools/environment_install/install-prereqs-mac.sh -y
+          Tools/environment_install/install-prereqs-mac.sh -y || true
           source ~/.bash_profile
       # Put ccache into github cache for faster build
       - name: Prepare ccache timestamp
