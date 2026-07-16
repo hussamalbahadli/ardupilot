@@ -73,7 +73,7 @@ jobs:
           cp build/esp32buzz/esp-idf_build/ardupilot.elf ./ArduCopter.elf
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
            name: esp32-binaries -${{matrix.config}}
            path: |
