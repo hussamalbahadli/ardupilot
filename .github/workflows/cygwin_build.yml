@@ -54,7 +54,17 @@ jobs:
           PATH: /usr/bin:$(cygpath ${SYSTEMROOT})/system32
         shell: C:\cygwin\bin\bash.exe -eo pipefail '{0}'
         run: >-
-          ln -sf /usr/bin/python3 /usr/bin/python && ln -sf /usr/bin/pip3 /usr/bin/pip &&
+          - name: Install Python and setup ccache
+        run: |
+          apt-cyg install python39 python39-pip python39-devel || apt-cyg install python3 python3-pip python3-devel
+          ln -sf /usr/bin/python3 /usr/bin/python
+          ln -sf /usr/bin/pip3 /usr/bin/pip
+          python -m pip install --progress-bar off empy pexpect
+          python -m pip install --progress-bar off dronecan --upgrade
+          cp /usr/bin/ccache /usr/local/bin/
+          cd /usr/local/bin
+          ln -s ccache gcc && ln -s ccache g++
+          ln -s ccache x86_64-pc-cygwin-gcc && ln -s ccache x86_64-pc-cygwin-g++
           python -m pip install --progress-bar off empy pexpect &&
           python -m pip install --progress-bar off dronecan --upgrade &&
           cp /usr/bin/ccache /usr/local/bin/ &&
