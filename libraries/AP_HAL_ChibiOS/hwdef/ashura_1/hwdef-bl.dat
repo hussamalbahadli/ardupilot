@@ -1,6 +1,16 @@
 # hw definition file for processing by chibios_hwdef.py
 # for Ashura 1 board
 
+ undef USB_STRING_PRODUCT
+ undef USB_STRING_MANUFACTURER
+
+
+
+ USB_STRING_MANUFACTURER "AL-ANKAA"
+ USB_STRING_PRODUCT "ASHURA-1-BL"
+ 
+
+
 # MCU class and specific type
 MCU STM32H7xx STM32H743xx
 
