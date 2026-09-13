@@ -1,0 +1,611 @@
+# =============================================================================
+#  Ashura 1  --  hwdef.dat
+#  White Bird / AL-ANKAA
+#
+#  MCU      : STM32H743VI / ZI  (2 MB flash, 1 MB RAM)
+#  Target   : ArduPlane 4.6.3
+#  Board ID : 1500
+#
+#  Processed by:
+#     libraries/AP_HAL_ChibiOS/hwdef/scripts/chibios_hwdef.py
+#  Build with:
+#     ./waf configure --board ashura_1 && ./waf plane
+#
+#  -------------------------------------------------------------------------
+#  REVIEW MARKERS
+#     [FIX]   a real defect that was in the previous file -- verify and keep
+#     [TODO]  needs a hardware measurement before it can be enabled
+#     [NOTE]  behaviour worth knowing, no action needed
+#  -------------------------------------------------------------------------
+# =============================================================================
+
+
+# =============================================================================
+#  1. BOARD IDENTITY
+# =============================================================================
+
+MCU STM32H7xx STM32H743xx
+
+# External crystal. NOT the 8 MHz ArduPilot default -- the PLL config is
+# derived from this value, so it must match the part actually fitted.
+OSCILLATOR_HZ 16000000
+
+FLASH_SIZE_KB 2048
+
+# Must be unique and registered with ArduPilot before public release.
+APJ_BOARD_ID 1500
+
+# USB descriptor strings. 'undef' first, because the common hwdef we
+# inherit from already defines them.
+undef USB_STRING_PRODUCT
+undef USB_STRING_MANUFACTURER
+USB_STRING_MANUFACTURER "AL-ANKAA"
+USB_STRING_PRODUCT      "ASHURA-1"
+
+# [NOTE] The name shown in Windows Device Manager does NOT come from these
+#        strings -- it comes from whichever .INF driver matched the VID/PID.
+#        See the WhiteBird.inf package.
+
+
+# =============================================================================
+#  2. FLASH LAYOUT AND BUILD ENVIRONMENT
+# =============================================================================
+
+# The bootloader occupies the first H743 sector (128 KB).
+FLASH_RESERVE_START_KB 128
+
+# ChibiOS system tick timer.
+STM32_ST_USE_TIMER 2
+
+# 2 MB of flash is plenty, so trade size for speed.
+env OPTIMIZE -O2
+
+# [NOTE] If you ever run out of RAM, add:  env USE_ALT_RAM_MAP 1
+env USE_ALT_RAM_MAP 1
+#        That swaps the H743 RAM0 region from the 512 KB AXI SRAM
+#        (0x24000000) to the 256 KB D2 AHB SRAM (0x30000000). It is only
+#        useful for specific DMA layouts -- do not enable it speculatively.
+
+
+# =============================================================================
+#  3. USB AND DEBUG
+# =============================================================================
+
+PA11 OTG_FS_DM OTG1
+PA12 OTG_FS_DP OTG1
+
+# SWD header (ST-Link v2 / Black Magic Probe)
+PA13 JTMS-SWDIO SWD
+PA14 JTCK-SWCLK SWD
+
+
+# =============================================================================
+#  4. SERIAL PORTS
+#
+#  SERIAL_ORDER position -> ArduPilot SERIALn parameter:
+#
+#     SERIAL0 = OTG1    USB console / MAVLink
+#     SERIAL1 = USART2  Telem 1        (with CTS/RTS)
+#     SERIAL2 = USART6  Telem 2        (with CTS/RTS)
+#     SERIAL3 = UART4   GPS 1
+#     SERIAL4 = USART3  GPS 2 / spare
+#     SERIAL5 = USART1  RC in (SBUS)   <-- has the level shifter
+#     SERIAL6 = UART8   spare
+#     SERIAL7 = UART7   debug console
+# =============================================================================
+
+SERIAL_ORDER OTG1 USART2 USART6 UART4 USART3 USART1 UART8 UART7 OTG2
+
+# default the 2nd interface to MAVLink2 until MissionPlanner updates drivers
+define HAL_OTG2_PROTOCOL SerialProtocol_MAVLink2
+
+# --- SERIAL1 / Telem 1 ---
+PD5 USART2_TX  USART2
+PD6 USART2_RX  USART2
+PD3 USART2_CTS USART2
+PD4 USART2_RTS USART2
+
+# --- SERIAL2 / Telem 2 ---
+PC6  USART6_TX  USART6
+PC7  USART6_RX  USART6
+PG15 USART6_CTS USART6
+PG8  USART6_RTS USART6
+
+# --- SERIAL3 / GPS 1 ---
+PD0 UART4_RX UART4 NODMA
+PD1 UART4_TX UART4 NODMA
+
+# --- SERIAL4 / GPS 2, spare ---
+PD8 USART3_TX USART3 NODMA
+PD9 USART3_RX USART3 NODMA
+
+# --- SERIAL5 / RC input (SBUS) ---
+# [NOTE] SBUS is inverted UART, 100000 baud, 8E2. ArduPilot toggles the
+#        STM32 hardware inverter (OPTION_RXINV) itself, so no external
+#        inverter is needed -- BUT this port must be able to swing a full
+#        logic level. USART1 works on this board because a level shifter
+#        is fitted here; UART7 has none and does NOT work with a Futaba
+#        R7008SB. Do not move RC input off USART1.
+PB14 USART1_TX USART1 NODMA
+PA10 USART1_RX USART1 NODMA
+
+# --- SERIAL6 / spare ---
+PE0 UART8_RX UART8
+PE1 UART8_TX UART8
+
+# --- SERIAL7 / debug console ---
+PE7 UART7_RX UART7 NODMA
+PE8 UART7_TX UART7 NODMA
+
+
+# =============================================================================
+#  5. SPI BUSES
+# =============================================================================
+
+# SPI1 - BMI088 IMU (accel + gyro, two chip selects)
+PG11 SPI1_SCK  SPI1
+PG9  SPI1_MISO SPI1
+PD7  SPI1_MOSI SPI1
+# [FIX] PG11 used to be claimed a second time as ETH_RMII_TX_EN further
+#       down the file. chibios_hwdef.py aborts with
+#           Error: Pin PG11 redefined
+#       so the previous file could not be generated at all. Ethernet
+#       TX_EN has been moved to PB11 (section 11), which matches the
+#       board that is actually working.
+
+# SPI2 - ICM42688P IMU
+PI1 SPI2_SCK  SPI2
+PI2 SPI2_MISO SPI2
+PI3 SPI2_MOSI SPI2
+
+# SPI3 - RM3100 compass
+PB3 SPI3_SCK  SPI3
+PB4 SPI3_MISO SPI3
+PB2 SPI3_MOSI SPI3
+
+# SPI4 - MS5611 barometer
+PE2 SPI4_SCK  SPI4
+PE5 SPI4_MISO SPI4
+PE6 SPI4_MOSI SPI4
+
+# SPI5 - MS4525DO airspeed sensor
+PF7 SPI5_SCK  SPI5
+PF8 SPI5_MISO SPI5
+PF9 SPI5_MOSI SPI5
+
+# SPI6 - FRAM (parameter storage)
+PA5  SPI6_SCK  SPI6
+PA6  SPI6_MISO SPI6
+PG14 SPI6_MOSI SPI6
+
+# --- chip selects ---
+# CS pins are driven high automatically at boot so no device is selected
+# before its driver probes.
+PA3  BMI088_A_CS            CS
+PE10 BMI088_G_CS            CS
+PE12 ICM42688P_CS           CS
+PF1  MS4525DO_SS3AS015AP_CS CS
+PE15 MS5611_CS              CS
+PG10 RM3100_CS              CS
+PH7  FLASH_CS               CS SPEED_VERYLOW
+
+# --- device table ---
+# Columns: name  bus  devid  cs-pin  mode  low-speed  high-speed
+# 'devid' only needs to be unique within one bus.
+SPIDEV bmi088_g     SPI1 DEVID1 BMI088_G_CS   MODE3 10*MHZ 10*MHZ
+SPIDEV bmi088_a     SPI1 DEVID1 BMI088_A_CS   MODE3 10*MHZ 10*MHZ
+SPIDEV icm42688     SPI2 DEVID2 ICM42688P_CS  MODE3  2*MHZ 16*MHZ
+SPIDEV rm3100-1     SPI3 DEVID1 RM3100_CS     MODE3  1*MHZ  1*MHZ
+SPIDEV ms5611_board SPI4 DEVID1 MS5611_CS     MODE3 20*MHZ 20*MHZ
+SPIDEV ramtron      SPI6 DEVID1 FLASH_CS      MODE3  8*MHZ  8*MHZ
+
+# [NOTE] rm3100 is clocked at 1 MHz to match upstream CubeOrange. A local
+#        copy of this file had 2*MHZ / 8*MHZ. The RM3100 datasheet allows
+#        it, but 1 MHz is the value proven in the field -- leave it.
+
+# --- unpopulated / alternate parts, kept for reference ---
+# SPIDEV iim42652     SPI1 DEVID2 IIM42652_CS  MODE3 2*MHZ  8*MHZ
+# SPIDEV bmp581       SPI5 DEVID1 BMP581_CS    MODE3 7.5*MHZ 12*MHZ
+# SPIDEV icm20649     SPI6 DEVID2 ICM20649_CS  MODE3 2*MHZ  8*MHZ
+
+
+# =============================================================================
+#  6. I2C BUSES
+# =============================================================================
+
+# I2C1 - internal, second BMI088
+PB8 I2C1_SCL I2C1
+PB9 I2C1_SDA I2C1
+
+# I2C2 - internal, MS4525DO differential airspeed
+PH4 I2C2_SCL I2C2
+PH5 I2C2_SDA I2C2
+
+# I2C3 - internal, FRAM / EEPROM
+PA8 I2C3_SCL I2C3
+PH8 I2C3_SDA I2C3
+
+# I2C4 - external connector
+PF14 I2C4_SCL I2C4
+PF15 I2C4_SDA I2C4
+
+# Bus index order seen by ArduPilot:
+#   bus 0 = I2C2 , bus 1 = I2C1 , bus 2 = I2C3 , bus 3 = I2C4
+I2C_ORDER I2C2 I2C1 I2C3 I2C4
+
+# define HAL_I2C_MAX_CLOCK 400000
+
+# Bitmask of buses treated as internal (bit0 = bus 0 = I2C2).
+# [TODO] This marks only I2C2 as internal, yet I2C1 and I2C3 are also
+#        on-board. If you want external-compass auto-probe to skip them,
+#        this should be 0b0111 (=7). Left at 1 to preserve current
+#        behaviour -- change deliberately, not by accident.
+define HAL_I2C_INTERNAL_MASK 1
+
+
+# =============================================================================
+#  7. SENSOR DATA-READY PINS
+#
+#  [FIX] The previous file used the label DRDY5 twice (PF10 and PC2) and
+#        DRDY6 twice (PF5 and PB12). Labels become HAL_GPIO_PIN_<label>
+#        macros, so a duplicate silently redefines the first one.
+#        Renumbered so every label is unique.
+#  [NOTE] None of these are referenced by any driver in this hwdef -- they
+#        are declared only so the pins are not left floating. They cost
+#        nothing but they do nothing either.
+# =============================================================================
+
+PG0  DRDY1_BMI088_ACC1  INPUT
+PG1  DRDY2_BMI088_GYRO1 INPUT
+PC3  DRDY3_BMI088_ACC2  INPUT
+PF10 DRDY4_BMI088_GYRO2 INPUT
+PC2  DRDY5_BMI088_ACC3  INPUT
+PF5  DRDY6_BMI088_GYRO3 INPUT
+PI10 DRDY7_BMI088_ACC4  INPUT
+PF6  DRDY8_BMI088_GYRO4 INPUT
+PB12 DRDY9_ICM42688P    INPUT
+PB13 DRDY10_ICM42688P   INPUT
+
+
+# =============================================================================
+#  8. POWER RAIL CONTROL
+# =============================================================================
+
+# Sensor 3V3 rail enable.
+#
+# [NOTE] This label IS magic. stm32_util.c :: peripheral_power_enable()
+#        does, ~100 ms into main_loop():
+#            palWriteLine(HAL_GPIO_PIN_VDD_3V3_SENSORS_EN, 1);
+#        So declaring it OUTPUT LOW gives exactly the behaviour you want:
+#        sensor rail OFF through reset and early boot, then ON. That is a
+#        deliberate power-cycle so sensors with fussy power-on timing come
+#        up cleanly. It only works active-high -- there is no
+#        'nVDD_3V3_SENSORS_EN' variant for the sensor rail.
+#
+# [NOTE] The pin is intentionally NOT declared in hwdef-bl.dat, so it is
+#        high-Z while the bootloader runs. If you measure it there you are
+#        measuring the external network, not the MCU.
+PI4 VDD_3V3_SENSORS_EN OUTPUT LOW
+
+# Not fitted on this board -- kept so the mapping is obvious if a
+# revision adds them.
+# PD11 VDD_5V_HIPOWER_EN   OUTPUT HIGH
+# PG4  VDD_5V_PERIPH_EN    OUTPUT HIGH
+# PG5  VDD_5V_RC_EN        OUTPUT HIGH
+# PG7  VDD_3V3_SD_CARD_EN  OUTPUT HIGH
+
+# Power-brick validity inputs -- not fitted.
+# PG1  VDD_BRICK_nVALID     INPUT PULLUP
+# PG2  VDD_BRICK2_nVALID    INPUT PULLUP
+# PJ3  VDD_5V_HIPOWER_nOC   INPUT PULLUP
+# PJ4  VDD_5V_PERIPH_nOC    INPUT PULLUP
+
+
+# =============================================================================
+#  9. PWM OUTPUTS
+#
+#  GPIO numbering rule used here: GPIO(n) = 49 + PWM channel number.
+#  That is what makes RELAY_PIN easy to compute:
+#      PWM out 1 -> GPIO 50 , ... , PWM out 14 -> GPIO 63
+#  Set SERVOn_FUNCTION = -1 (GPIO) before using a channel as a relay.
+# =============================================================================
+
+# Main outputs 1-8
+PH10 TIM5_CH1 TIM5 PWM(1) GPIO(50)
+PH11 TIM5_CH2 TIM5 PWM(2) GPIO(51)
+PH12 TIM5_CH3 TIM5 PWM(3) GPIO(52)
+PI0  TIM5_CH4 TIM5 PWM(4) GPIO(53)
+PD12 TIM4_CH1 TIM4 PWM(5) GPIO(54)
+PD13 TIM4_CH2 TIM4 PWM(6) GPIO(55)
+PD14 TIM4_CH3 TIM4 PWM(7) GPIO(56)
+PD15 TIM4_CH4 TIM4 PWM(8) GPIO(57)
+
+# AUX outputs 9-14
+# TIM12 has no usable DMA stream here, hence NODMA (no DShot on 9 and 13).
+PB15 TIM12_CH2 TIM12 PWM(9)  GPIO(58) NODMA
+PE11 TIM1_CH2  TIM1  PWM(10) GPIO(59)
+PE13 TIM1_CH3  TIM1  PWM(11) GPIO(60)
+PE14 TIM1_CH4  TIM1  PWM(12) GPIO(61)
+PH6  TIM12_CH1 TIM12 PWM(13) GPIO(62) NODMA
+PE9  TIM1_CH1  TIM1  PWM(14) GPIO(63)
+
+# Buzzer -- conflicts with ETH_MDIO on PA2, so it stays off.
+# PA2 TIM15_CH1 TIM15 GPIO(77) ALARM
+
+# PPM/SBUS on a timer input -- not used; RC comes in on USART1 (SERIAL5)
+# and PB4 is SPI3_MISO anyway.
+# PB4 TIM3_CH1 TIM3 RCININT PULLDOWN LOW
+
+
+# =============================================================================
+#  10. ANALOG INPUTS
+#
+#  SCALE(x) is the resistor-divider ratio: Vactual = Vadc * x.
+#  The ADC pin itself must never exceed 3.3 V.
+# =============================================================================
+
+PC0  BATT_VOLTAGE_SENS ADC1 SCALE(1)
+PA0  RSSI_IN           ADC1 SCALE(1)
+PF11 VDD_5V_SENS       ADC1 SCALE(2)
+PF12 SCALED_V3V3       ADC1 SCALE(2)
+
+# [TODO] Servo rail voltage sense.
+#        This label IS magic -- naming a pin FMU_SERVORAIL_VCC_SENS makes
+#        chibios_hwdef.py emit FMU_SERVORAIL_ADC_PIN and
+#        HAL_HAVE_SERVO_VOLTAGE 1 automatically. That enables:
+#          - an arming check on servo-rail voltage (AP_Arming.cpp)
+#          - the Vservo field in the .BIN log
+#          - the servo voltage field in MAVLink / Mission Planner
+#        CUAV X7 uses exactly this line with SCALE(3).
+#        Uncomment ONLY after measuring your divider: with SCALE(3) the
+#        rail must stay under ~9 V or you destroy the ADC pin.
+# PB1 FMU_SERVORAIL_VCC_SENS ADC1 SCALE(3)
+
+# [TODO] BATT_VOLT_MULT is still unresolved (18.2 measured vs 15.873
+#        calculated). Settle it against the real divider values.
+
+# Spares -- PC0 is taken by battery sense, do not re-enable that line.
+# PA4 SPARE1_ADC1 ADC1 SCALE(1)
+
+
+# =============================================================================
+#  11. ETHERNET  (RMII, external LAN8720 module)
+#
+#  [NOTE] The on-board LAN8720 is not usable on this revision -- its
+#         crystal has no 3V3 feed. An external Waveshare LAN8720 breakout
+#         is wired to these pins instead.
+# =============================================================================
+
+PC1  ETH_MDC          ETH1
+PA2  ETH_MDIO         ETH1
+PC4  ETH_RMII_RXD0    ETH1
+PC5  ETH_RMII_RXD1    ETH1
+PA7  ETH_RMII_CRS_DV  ETH1
+PA1  ETH_RMII_REF_CLK ETH1
+PB11 ETH_RMII_TX_EN   ETH1
+PG13 ETH_RMII_TXD0    ETH1
+PG12 ETH_RMII_TXD1    ETH1
+
+define BOARD_PHY_RMII
+
+# [FIX] Do NOT use 'define BOARD_PHY_ID MII_LAN8720_ID' here.
+#       With BOARD_PHY_ID set, ChibiOS calls mii_find_phy(), which walks
+#       all 32 MDIO addresses and compares the ID register against the
+#       constant. The chip on the Waveshare module does not report the
+#       stock LAN8720 ID, so the walk failed on every address and
+#       mac_lld_start() bailed out with:
+#           NET: macInit failed
+#       Setting the address explicitly skips the search entirely, so the
+#       ID is never compared. Address 1 is correct for this module
+#       because PHYAD0 is pulled high through 1.5k.
+define BOARD_PHY_ADDRESS 1
+
+# [FIX] Required together with BOARD_PHY_ADDRESS.
+#       Without a BOARD_PHY_RESET() macro, hal_mac_lld.c falls into
+#           mii_write(BMCR_RESET); while (mii_read(MII_BMCR) & BMCR_RESET);
+#       which has no timeout and hangs the board. The module resets
+#       itself on power-up, so an empty macro is correct.
+define BOARD_PHY_RESET() do{}while(0)
+
+# [NOTE] Do NOT add 'define AP_NETWORKING_BACKEND_PPP'. The header works
+#        it out from !HAL_USE_MAC on its own; forcing it either way here
+#        breaks the logic.
+
+# [NOTE] NET_* parameters, not hwdef:
+#          NET_ENABLE   = 1
+#          NET_P1_TYPE  = 2   (UDP server -- NOT 1/UDP client)
+#          NET_P1_IP    = 0.0.0.0
+#          NET_P1_PORT  = 14550
+#        Mission Planner then connects as UDPCl to <board ip>:14550.
+
+
+# =============================================================================
+#  12. CAN
+# =============================================================================
+
+PH13 CAN1_TX CAN1
+PH14 CAN1_RX CAN1
+PB6  CAN2_TX CAN2
+PB5  CAN2_RX CAN2
+
+# Silent-mode control -- not fitted, and PH3 is the heater pin.
+# PH2 GPIO_CAN1_SILENT OUTPUT PUSHPULL SPEED_LOW LOW GPIO(70)
+
+
+# =============================================================================
+#  13. IMU HEATER
+# =============================================================================
+
+# [FIX] The previous line was
+#           PH3 HEATER_EN OUTPUT LOW (80)
+#       -- missing the 'GPIO' prefix. chibios_hwdef.py::extra_value()
+#       only accepts a token that STARTS with "GPIO", so a bare (80) was
+#       ignored and GPIO 80 was never created. HAL_HEATER_GPIO_PIN 80
+#       then pointed at nothing and the heater never ran.
+#       CUAV X7 has the correct form: PA8 HEATER_EN OUTPUT LOW GPIO(80)
+PH3 HEATER_EN OUTPUT LOW GPIO(80)
+
+define HAL_HEATER_GPIO_PIN 80
+define HAL_HAVE_IMU_HEATER 1
+define HAL_IMU_TEMP_DEFAULT 45
+
+# [NOTE] Add 'define HAL_HEATER_GPIO_ON 0' ONLY if the FET is high-side
+#        P-channel. Default is 1 (active high).
+#
+# [NOTE] The heater is driven from IMU 0's temperature via
+#        AP_InertialSensor_Backend::_publish_temperature(). With no IMU
+#        registered, set_imu_temp() is never called and the pin never
+#        moves -- so the heater cannot work while HAL_INS_DEFAULT is
+#        HAL_INS_NONE.
+#
+# [NOTE] The output is deliberately dithered with get_random16() instead
+#        of a fixed-frequency PWM, to avoid injecting a periodic magnetic
+#        signature into the compass. Seeing a random-looking duty cycle
+#        on this pin is correct behaviour, not a fault.
+#
+#        Tuning: BRD_HEAT_TARG (-1 disables), BRD_HEAT_P, BRD_HEAT_I,
+#        BRD_HEAT_IMAX, BRD_HEAT_LOWMGN. Check the HEAT message in the
+#        .BIN log to confirm the loop is running.
+
+
+# =============================================================================
+#  14. INERTIAL SENSORS
+# =============================================================================
+
+IMU BMI088       SPI:bmi088_a SPI:bmi088_g ROTATION_PITCH_180
+IMU Invensensev3 SPI:icm42688               ROTATION_PITCH_180
+IMU BMI088       I2C:1:0x18   I2C:1:0x68    ROTATION_PITCH_180
+
+# Bitmask of IMUs allowed to run in fast-sampling mode (0b101 = IMU 0 and 2).
+define HAL_DEFAULT_INS_FAST_SAMPLE 5
+
+# [TODO] IMU ordering was never verified against a spare board. The order
+#        of these lines decides which IMU is instance 0 -- and instance 0
+#        is the one that drives the heater loop.
+
+
+# =============================================================================
+#  15. BAROMETER
+# =============================================================================
+
+# [FIX] 4.7 split the MS56XX family into MS5607 / MS5611 / MS5637 / MS5837.
+#       AP_BARO_MS56XX_ENABLED is now a DERIVED macro in AP_Baro_config.h,
+#       defined unconditionally with no #ifndef guard:
+#           #define AP_BARO_MS56XX_ENABLED (AP_BARO_MS5607_ENABLED || ...)
+#       So a hwdef line of "BARO MS56XX" makes the generator emit that same
+#       name, and the build dies with
+#           error: "AP_BARO_MS56XX_ENABLED" redefined [-Werror]
+#       Name the exact part instead. The C++ class AP_Baro_MS5611 still
+#       derives from AP_Baro_MS56XX, so behaviour is unchanged.
+BARO MS5611 SPI:ms5611_board
+
+# Allows boot to continue with no baro detected. Useful on the bench;
+# an arming check still stops you flying without one.
+define HAL_BARO_ALLOW_INIT_NO_BARO
+# [FIX] this define appeared twice in the previous file.
+
+
+# =============================================================================
+#  16. COMPASS
+# =============================================================================
+
+# [NOTE] COMPASS_ORIENT is IGNORED for internal compasses
+#        (AP_Compass_Backend.cpp), so the rotation MUST be correct here.
+#        ROTATION_YAW_180 is the verified value for this layout -- a local
+#        copy of this file had ROTATION_NONE, which is wrong.
+COMPASS RM3100 SPI:rm3100-1 false ROTATION_YAW_180
+
+# External I2C compass probing -- enable if you fit one on I2C4.
+# define HAL_PROBE_EXTERNAL_I2C_COMPASSES
+# COMPASS IST8310 I2C:ALL_EXTERNAL:0x0E true ROTATION_ROLL_180_YAW_90
+
+
+# =============================================================================
+#  17. DIAGNOSTIC OVERRIDES  --  MUST STAY REMOVED
+#
+#  [FIX] These three lines were left in from Ethernet debugging. They
+#        disable every inertial sensor, the compass, and the pre-arm
+#        sensor consistency checks. Flying with them is dangerous.
+#        Keep them commented. Re-enable one at a time on the bench only,
+#        and never build a flight binary with them active.
+#
+#   define DISABLE_SENSOR_CHECKS 1
+#   define HAL_INS_DEFAULT HAL_INS_NONE
+#   define HAL_COMPASS_NONE
+# =============================================================================
+
+
+# =============================================================================
+#  18. MICROSD
+# =============================================================================
+
+PC8  SDMMC1_D0  SDMMC1
+PC9  SDMMC1_D1  SDMMC1
+PC10 SDMMC1_D2  SDMMC1
+PC11 SDMMC1_D3  SDMMC1
+PC12 SDMMC1_CK  SDMMC1
+PD2  SDMMC1_CMD SDMMC1
+
+define HAL_OS_FATFS_IO 1
+define HAL_BOARD_LOG_DIRECTORY     "/APM/LOGS"
+define HAL_BOARD_TERRAIN_DIRECTORY "/APM/TERRAIN"
+
+
+# =============================================================================
+#  19. PARAMETER STORAGE  (FRAM on SPI6)
+# =============================================================================
+
+define HAL_WITH_RAMTRON 1
+define HAL_STORAGE_SIZE 32768
+
+
+# =============================================================================
+#  20. LEDs
+# =============================================================================
+
+PI5 LED_ACTIVITY   OUTPUT HIGH GPIO(206)   # blue
+PI6 LED_BOOTLOADER OUTPUT HIGH GPIO(207)   # green
+PI7 LED_YELLOW     OUTPUT HIGH GPIO(208)   # yellow
+
+# [FIX] 4.6 renamed the whole pixracer-LED mechanism. The old pair
+#           define HAL_HAVE_PIXRACER_LED
+#           define HAL_GPIO_A_LED_PIN 206      (etc.)
+#       no longer compiles: HAL_HAVE_PIXRACER_LED was an empty define
+#       tested with #ifdef, while the new name is tested with #if, so an
+#       empty value gives "#if with no expression".
+define AP_NOTIFY_GPIO_LED_RGB_ENABLED   1
+define AP_NOTIFY_GPIO_LED_RGB_RED_PIN   206
+define AP_NOTIFY_GPIO_LED_RGB_GREEN_PIN 207
+define AP_NOTIFY_GPIO_LED_RGB_BLUE_PIN  208
+
+# [FIX] Do NOT add 'define HAL_GPIO_LED_ON'.
+#       These LEDs are active-low, i.e. ON = 0, which is already the
+#       default. 4.6 raises
+#           #error "Do not specify HAL_GPIO_LED_ON if you are setting it
+#                   to the default, 0"
+#       Setting it to 1 to silence that error inverts every LED.
+#       The correct fix is to delete the line, which is what is done here.
+
+
+# =============================================================================
+#  21. DMA
+# =============================================================================
+
+# Streams these peripherals get first claim on.
+DMA_PRIORITY ADC* SPI1* TIM*UP*
+
+# Streams that must not be shared with anything else.
+DMA_NOSHARE  SPI1* TIM*UP*
+
+
+# =============================================================================
+#  22. NOT FITTED / FUTURE
+# =============================================================================
+
+# Safety switch
+# define HAL_HAVE_SAFETY_SWITCH 1
+# PI14 LED_SAFETY OUTPUT
+# PI13 SAFETY_IN  INPUT PULLDOWN
+
+# Sagetech MXS ADSB transponder
+# define HAL_ADSB_SAGETECH_MXS_ENABLED HAL_ADSB_ENABLED

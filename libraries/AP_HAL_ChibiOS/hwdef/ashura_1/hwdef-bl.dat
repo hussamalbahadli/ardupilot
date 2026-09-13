@@ -1,0 +1,88 @@
+# =============================================================================
+#  Ashura 1  --  hwdef-bl.dat   (bootloader)
+#  White Bird / AL-ANKAA
+#
+#  Build with:
+#     Tools/scripts/build_bootloaders.py ashura_1
+#
+#  Keep the identity block below byte-for-byte identical to hwdef.dat --
+#  MCU, OSCILLATOR_HZ, APJ_BOARD_ID and FLASH_SIZE_KB must agree or the
+#  bootloader will refuse the firmware image.
+# =============================================================================
+
+
+# --- identity (must match hwdef.dat) ---------------------------------------
+MCU STM32H7xx STM32H743xx
+OSCILLATOR_HZ 16000000
+APJ_BOARD_ID  1500
+FLASH_SIZE_KB 2048
+
+# --- flash layout -----------------------------------------------------------
+# The bootloader itself lives at offset 0 ...
+FLASH_RESERVE_START_KB 0
+# ... and loads the main firmware at 128 KB (one H743 sector).
+# This value MUST equal FLASH_RESERVE_START_KB in hwdef.dat.
+FLASH_BOOTLOADER_LOAD_KB 128
+
+STM32_ST_USE_TIMER 2
+
+
+# --- USB --------------------------------------------------------------------
+undef USB_STRING_PRODUCT
+undef USB_STRING_MANUFACTURER
+USB_STRING_MANUFACTURER "AL-ANKAA"
+USB_STRING_PRODUCT      "ASHURA-1-BL"
+
+PA11 OTG_FS_DM OTG1
+PA12 OTG_FS_DP OTG1
+
+PA13 JTMS-SWDIO SWD
+PA14 JTCK-SWCLK SWD
+
+
+# --- serial -----------------------------------------------------------------
+SERIAL_ORDER OTG1 UART7
+
+PE7 UART7_RX UART7 NODMA
+PE8 UART7_TX UART7 NODMA
+
+define BOOTLOADER_DEBUG SD7
+
+
+# --- LEDs -------------------------------------------------------------------
+# Active low, hence HAL_LED_ON 0. Note the bootloader uses HAL_LED_ON,
+# NOT HAL_GPIO_LED_ON -- different macro, different rules.
+PI5 LED_ACTIVITY   OUTPUT HIGH   # blue
+PI6 LED_BOOTLOADER OUTPUT HIGH   # green
+PI7 LED_YELLOW     OUTPUT HIGH   # yellow
+
+define HAL_LED_ON 0
+
+
+# --- chip selects -----------------------------------------------------------
+# Declared only so every SPI device is deselected while the bootloader
+# runs. No SPI bus is actually brought up here.
+PA3  BMI088_A_CS            CS
+PE10 BMI088_G_CS            CS
+PE12 ICM42688P_CS           CS
+PF1  MS4525DO_SS3AS015AP_CS CS
+PE15 MS5611_CS              CS
+PG10 RM3100_CS              CS
+PH7  FLASH_CS               CS SPEED_VERYLOW
+
+
+# =============================================================================
+#  NOT declared here, on purpose:
+#
+#    PI4 VDD_3V3_SENSORS_EN
+#
+#  Leaving it out means the sensor rail enable stays high-Z through the
+#  whole bootloader stage, and only becomes a driven output once the main
+#  firmware reaches peripheral_power_enable(). That is what upstream does
+#  (CUAV-X7, CubeOrange, CubeBlack all omit it from hwdef-bl.dat) and it
+#  is what produces the deliberate sensor power-cycle.
+#
+#  Consequence for debugging: any voltage you measure on PI4 while the
+#  board sits in the bootloader comes from the external network, not from
+#  the MCU. Measure it after boot completes.
+# =============================================================================
