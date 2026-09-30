@@ -181,6 +181,16 @@ static void parse_utc_seconds(uint64_t utc_sec, struct utc_tm *tm)
 
 
 /*
+  FAT timestamps carry no timezone and Windows shows them as local
+  time. FAT_TZ_OFFSET_SEC (set in hwdef.dat, e.g. 10800 for UTC+3)
+  shifts the time written to the SD card so file dates show local
+  time. Internal time stays UTC.
+ */
+#ifndef FAT_TZ_OFFSET_SEC
+#define FAT_TZ_OFFSET_SEC 0
+#endif
+
+/*
   get time for fat filesystem. This is based on
   rtcConvertDateTimeToFAT from the ChibiOS RTC driver. We don't use
   the hw RTC clock as it is very inaccurate
@@ -193,6 +203,8 @@ uint32_t get_fattime()
     }
     uint64_t utc_usec = stm32_get_utc_usec();
     uint64_t utc_sec = utc_usec / 1000000UL;
+    // write local time to the FAT directory entry
+    utc_sec = (uint64_t)((int64_t)utc_sec + (int64_t)FAT_TZ_OFFSET_SEC);
     struct utc_tm tm;
 
     parse_utc_seconds(utc_sec, &tm);

@@ -485,6 +485,10 @@ define HAL_DEFAULT_INS_FAST_SAMPLE 3
 #        of these lines decides which IMU is instance 0 -- and instance 0
 #        is the one that drives the heater loop.
 
+# =============================================================================
+#  Time RTC UTC+3 time 
+# =============================================================================
+   define FAT_TZ_OFFSET_SEC 10800
 
 # =============================================================================
 #  15. BAROMETER

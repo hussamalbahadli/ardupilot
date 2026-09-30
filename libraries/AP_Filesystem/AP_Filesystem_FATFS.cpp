@@ -466,6 +466,15 @@ off_t AP_Filesystem_FATFS::lseek(int fileno, off_t position, int whence)
     return fh->fptr;
 }
 
+/*
+  FAT timestamps are stored as local time (see FAT_TZ_OFFSET_SEC in
+  stm32_util.c). Convert to/from UTC here so everything inside
+  ArduPilot (stat, MAVLink log list, MAVFTP) keeps working in UTC.
+ */
+#ifndef FAT_TZ_OFFSET_SEC
+#define FAT_TZ_OFFSET_SEC 0
+#endif
+
 static time_t fat_time_to_unix(uint16_t date, uint16_t time)
 {
     struct tm tp;
@@ -480,7 +489,8 @@ static time_t fat_time_to_unix(uint16_t date, uint16_t time)
     tp.tm_mon = ((date >> 5) & 0x0f) - 1;
     tp.tm_year = ((date >> 9) & 0x7f) + 80;
     unix = ap_mktime(&tp);
-    return unix;
+    // FAT holds local time; return UTC
+    return unix - FAT_TZ_OFFSET_SEC;
 }
 
 int AP_Filesystem_FATFS::stat(const char *name, struct stat *buf)
@@ -755,6 +765,8 @@ int64_t AP_Filesystem_FATFS::disk_space(const char *path)
  */
 static void unix_time_to_fat(time_t epoch, uint16_t &date, uint16_t &time)
 {
+    // store local time in the FAT directory entry
+    epoch += FAT_TZ_OFFSET_SEC;
     struct tm tmd {};
     struct tm *t = gmtime_r((time_t *)&epoch, &tmd);
 
