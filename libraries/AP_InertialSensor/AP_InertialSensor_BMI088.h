@@ -86,4 +86,10 @@ private:
 
     bool done_accel_config;
     uint32_t accel_config_count;
+
+    // ASHURA: per-bus sample rates (reduced on I2C)
+    uint16_t gyro_rate_hz = 2000;   // GYRO_BACKEND_SAMPLE_RATE
+    uint16_t accel_rate_hz = 1600;  // ACCEL_BACKEND_SAMPLE_RATE
+    uint32_t gyro_period_us = 500;
+    uint32_t accel_period_us = 625;
 };

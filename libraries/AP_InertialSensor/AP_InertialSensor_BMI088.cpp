@@ -59,8 +59,6 @@
 #define ACCEL_BACKEND_SAMPLE_RATE   1600
 #define GYRO_BACKEND_SAMPLE_RATE    2000
 
-const uint32_t ACCEL_BACKEND_PERIOD_US = 1000000UL / ACCEL_BACKEND_SAMPLE_RATE;
-const uint32_t GYRO_BACKEND_PERIOD_US = 1000000UL / GYRO_BACKEND_SAMPLE_RATE;
 
 extern const AP_HAL::HAL& hal;
 
@@ -100,8 +98,8 @@ AP_InertialSensor_BMI088::probe(AP_InertialSensor &imu,
 
 void AP_InertialSensor_BMI088::start()
 {
-    if (!_imu.register_accel(accel_instance, ACCEL_BACKEND_SAMPLE_RATE, dev_accel->get_bus_id_devtype(_accel_devtype)) ||
-        !_imu.register_gyro(gyro_instance, GYRO_BACKEND_SAMPLE_RATE,   dev_gyro->get_bus_id_devtype(DEVTYPE_INS_BMI088))) {
+    if (!_imu.register_accel(accel_instance, accel_rate_hz, dev_accel->get_bus_id_devtype(_accel_devtype)) ||
+        !_imu.register_gyro(gyro_instance, gyro_rate_hz,   dev_gyro->get_bus_id_devtype(DEVTYPE_INS_BMI088))) {
         return;
     }
 
@@ -110,9 +108,9 @@ void AP_InertialSensor_BMI088::start()
     set_accel_orientation(accel_instance, rotation);
 
     // setup callbacks
-    accel_periodic_handle = dev_accel->register_periodic_callback(ACCEL_BACKEND_PERIOD_US,
+    accel_periodic_handle = dev_accel->register_periodic_callback(accel_period_us,
                                                                   FUNCTOR_BIND_MEMBER(&AP_InertialSensor_BMI088::read_fifo_accel, void));
-    gyro_periodic_handle = dev_gyro->register_periodic_callback(GYRO_BACKEND_PERIOD_US,
+    gyro_periodic_handle = dev_gyro->register_periodic_callback(gyro_period_us,
                                                                 FUNCTOR_BIND_MEMBER(&AP_InertialSensor_BMI088::read_fifo_gyro, void));
 }
 
@@ -176,14 +174,19 @@ bool AP_InertialSensor_BMI088::setup_accel_config(void)
     }
     accel_config_count++;
     for (uint8_t i=0; i<ARRAY_SIZE(accel_config); i++) {
+        uint8_t want = accel_config[i].value;
+        if (accel_config[i].reg == REGA_CONF && accel_rate_hz == 800) {
+            // ASHURA: I2C - OSR2 @ 800Hz ODR to halve bus load
+            want = 0x9B;
+        }
         uint8_t v;
         if (!read_accel_registers(accel_config[i].reg, &v, 1)) {
             return false;
         }
-        if (v == accel_config[i].value) {
+        if (v == want) {
             continue;
         }
-        if (!write_accel_register(accel_config[i].reg, accel_config[i].value)) {
+        if (!write_accel_register(accel_config[i].reg, want)) {
             return false;
         }
     }
@@ -258,8 +261,9 @@ bool AP_InertialSensor_BMI088::gyro_init()
         return false;
     }
 
-    // setup filter bandwidth 532Hz, no decimation
-    if (!dev_gyro->write_register(REGG_BW, 0x80, true)) {
+    // setup filter bandwidth 532Hz, no decimation (2kHz ODR)
+    // ASHURA: on I2C use 1kHz ODR / 116Hz BW to halve bus load
+    if (!dev_gyro->write_register(REGG_BW, gyro_rate_hz == 1000 ? 0x82 : 0x80, true)) {
         return false;
     }
 
@@ -285,6 +289,17 @@ bool AP_InertialSensor_BMI088::gyro_init()
 
 bool AP_InertialSensor_BMI088::init()
 {
+    // ASHURA: a BMI088 on I2C cannot sustain 2kHz gyro + 1.6kHz accel FIFO
+    // reads at 400kHz (>100% bus time incl. register overhead). Halve the ODRs.
+    gyro_rate_hz  = GYRO_BACKEND_SAMPLE_RATE;
+    accel_rate_hz = ACCEL_BACKEND_SAMPLE_RATE;
+    if (dev_gyro->bus_type() == AP_HAL::Device::BUS_TYPE_I2C) {
+        gyro_rate_hz  = 1000;
+        accel_rate_hz = 800;
+    }
+    gyro_period_us  = 1000000UL / gyro_rate_hz;
+    accel_period_us = 1000000UL / accel_rate_hz;
+
     dev_accel->set_read_flag(0x80);
     dev_gyro->set_read_flag(0x80);
 
@@ -320,7 +335,7 @@ void AP_InertialSensor_BMI088::read_fifo_accel(void)
     
     // adjust the periodic callback to be synchronous with the incoming data
     // this means that we rarely run read_fifo_accel() without updating the sensor data
-    dev_accel->adjust_periodic_callback(accel_periodic_handle, ACCEL_BACKEND_PERIOD_US);
+    dev_accel->adjust_periodic_callback(accel_periodic_handle, accel_period_us);
 
     uint8_t data[fifo_length];
     if (!read_accel_registers(REGA_FIFO_DATA, data, fifo_length)) {
@@ -419,7 +434,7 @@ void AP_InertialSensor_BMI088::read_fifo_gyro(void)
 
     // adjust the periodic callback to be synchronous with the incoming data
     // this means that we rarely run read_fifo_gyro() without updating the sensor data
-    dev_gyro->adjust_periodic_callback(gyro_periodic_handle, GYRO_BACKEND_PERIOD_US);
+    dev_gyro->adjust_periodic_callback(gyro_periodic_handle, gyro_period_us);
 
     if (!dev_gyro->read_registers(REGG_FIFO_DATA, (uint8_t *)data, num_frames*6)) {
         _inc_gyro_error_count(gyro_instance);
