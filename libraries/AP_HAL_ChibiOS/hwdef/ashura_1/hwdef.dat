@@ -406,7 +406,7 @@ PF12 SCALED_V3V3       ADC1 SCALE(2)
 #           mii_write(BMCR_RESET); while (mii_read(MII_BMCR) & BMCR_RESET);
 #       which has no timeout and hangs the board. The module resets
 #       itself on power-up, so an empty macro is correct.
-define BOARD_PHY_RESET() do{}while(0)
+# define BOARD_PHY_RESET() do{}while(0)
 
 # [NOTE] Do NOT add 'define AP_NETWORKING_BACKEND_PPP'. The header works
 #        it out from !HAL_USE_MAC on its own; forcing it either way here
@@ -479,7 +479,7 @@ define HAL_IMU_TEMP_DEFAULT 45
  
 
 # Bitmask of IMUs allowed to run in fast-sampling mode (0b101 = IMU 0 and 2).
-define HAL_DEFAULT_INS_FAST_SAMPLE 1
+# define HAL_DEFAULT_INS_FAST_SAMPLE 1
 
 # [TODO] IMU ordering was never verified against a spare board. The order
 #        of these lines decides which IMU is instance 0 -- and instance 0
@@ -488,6 +488,7 @@ define HAL_DEFAULT_INS_FAST_SAMPLE 1
 # =============================================================================
 #  Time RTC UTC+3 time 
 # =============================================================================
+
    define FAT_TZ_OFFSET_SEC 10800
 
 # =============================================================================
@@ -503,6 +504,7 @@ define HAL_DEFAULT_INS_FAST_SAMPLE 1
 #           error: "AP_BARO_MS56XX_ENABLED" redefined [-Werror]
 #       Name the exact part instead. The C++ class AP_Baro_MS5611 still
 #       derives from AP_Baro_MS56XX, so behaviour is unchanged.
+
 BARO MS5611 SPI:ms5611_board
 
 # Allows boot to continue with no baro detected. Useful on the bench;
@@ -519,6 +521,7 @@ define HAL_BARO_ALLOW_INIT_NO_BARO
 #        (AP_Compass_Backend.cpp), so the rotation MUST be correct here.
 #        ROTATION_YAW_180 is the verified value for this layout -- a local
 #        copy of this file had ROTATION_NONE, which is wrong.
+
 COMPASS RM3100 SPI:rm3100-1 false ROTATION_YAW_180
 
 # External I2C compass probing -- enable if you fit one on I2C4.
@@ -567,31 +570,22 @@ define HAL_STORAGE_SIZE 32768
 
 # =============================================================================
 #  20. LEDs
+#  ACTIVE-HIGH: MCU pin -> 330R -> LED -> GND  (FMU_LEDs, sheet 4)
+#    PI5 = FMU LED B (blue)   PI6 = FMU LED G (green)   PI7 = FMU LED Y (yellow)
+#  No red LED on the board -> yellow is mapped to the RED channel so
+#  warnings / failsafe show yellow.
 # =============================================================================
 
-PI5 LED_ACTIVITY   OUTPUT HIGH GPIO(206)   # blue
-PI6 LED_BOOTLOADER OUTPUT HIGH GPIO(207)   # green
-PI7 LED_YELLOW     OUTPUT HIGH GPIO(208)   # yellow
+PI5 LED_BLUE   OUTPUT LOW GPIO(90)
+PI6 LED_GREEN  OUTPUT LOW GPIO(91)
+PI7 LED_YELLOW OUTPUT LOW GPIO(92)
 
-# [FIX] 4.6 renamed the whole pixracer-LED mechanism. The old pair
-#           define HAL_HAVE_PIXRACER_LED
-#           define HAL_GPIO_A_LED_PIN 206      (etc.)
-#       no longer compiles: HAL_HAVE_PIXRACER_LED was an empty define
-#       tested with #ifdef, while the new name is tested with #if, so an
-#       empty value gives "#if with no expression".
+define HAL_GPIO_LED_ON 1
+
 define AP_NOTIFY_GPIO_LED_RGB_ENABLED   1
-define AP_NOTIFY_GPIO_LED_RGB_RED_PIN   206
-define AP_NOTIFY_GPIO_LED_RGB_GREEN_PIN 207
-define AP_NOTIFY_GPIO_LED_RGB_BLUE_PIN  208
-
-# [FIX] Do NOT add 'define HAL_GPIO_LED_ON'.
-#       These LEDs are active-low, i.e. ON = 0, which is already the
-#       default. 4.6 raises
-#           #error "Do not specify HAL_GPIO_LED_ON if you are setting it
-#                   to the default, 0"
-#       Setting it to 1 to silence that error inverts every LED.
-#       The correct fix is to delete the line, which is what is done here.
-
+define AP_NOTIFY_GPIO_LED_RGB_RED_PIN   92
+define AP_NOTIFY_GPIO_LED_RGB_GREEN_PIN 91
+define AP_NOTIFY_GPIO_LED_RGB_BLUE_PIN  90
 
 # =============================================================================
 #  21. DMA
