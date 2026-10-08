@@ -240,7 +240,7 @@ define HAL_I2C_MAX_CLOCK 400000
 #        on-board. If you want external-compass auto-probe to skip them,
 #        this should be 0b0111 (=7). Left at 1 to preserve current
 #        behaviour -- change deliberately, not by accident.
-define HAL_I2C_INTERNAL_MASK 1
+define HAL_I2C_INTERNAL_MASK 7
 
 
 # =============================================================================
@@ -473,13 +473,13 @@ define HAL_IMU_TEMP_DEFAULT 45
 #  14. INERTIAL SENSORS
 # =============================================================================
 
- IMU BMI088       SPI:bmi088_a SPI:bmi088_g ROTATION_PITCH_180
- IMU BMI088       I2C:1:0x18   I2C:1:0x68    ROTATION_PITCH_180
+ IMU BMI088       SPI:bmi088_a SPI:bmi088_g   ROTATION_PITCH_180
+ IMU BMI088       I2C:1:0x18   I2C:1:0x68     ROTATION_PITCH_180
  #IMU Invensensev3 SPI:icm42688P               ROTATION_PITCH_180
  
 
 # Bitmask of IMUs allowed to run in fast-sampling mode (0b101 = IMU 0 and 2).
-define HAL_DEFAULT_INS_FAST_SAMPLE 3
+define HAL_DEFAULT_INS_FAST_SAMPLE 1
 
 # [TODO] IMU ordering was never verified against a spare board. The order
 #        of these lines decides which IMU is instance 0 -- and instance 0
