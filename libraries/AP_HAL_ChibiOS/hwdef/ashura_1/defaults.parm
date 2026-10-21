@@ -1,3 +1,28 @@
-# ashura_1 default parameters
-# Format: PARAM_NAME VALUE   (one per line)
-# Leave empty to use ArduPilot defaults.
+# Ashura 1 -- defaults.parm (board-level, built into the firmware)
+# Put this file in libraries/AP_HAL_ChibiOS/hwdef/ashura_1/defaults.parm
+# Source: log 243 (ArduPlane 4.7.1) + Ethernet test 21 Oct 2026
+#
+# --- SD / logging ---
+BRD_SD_SLOWDOWN 0
+#
+# --- Ethernet (TCP server, MAVLink2) ---
+NET_ENABLE 1
+NET_DHCP 0
+NET_IPADDR0 192
+NET_IPADDR1 168
+NET_IPADDR2 144
+NET_IPADDR3 14
+NET_NETMASK 24
+NET_P1_TYPE 4
+NET_P1_PROTOCOL 2
+NET_P1_PORT 14550
+#
+# --- board wiring (from log 243) ---
+BATT_MONITOR 3   # voltage only (current sense PB1 not connected)
+BATT_VOLT_MULT 16.0645   # on-board divider
+BATT_VOLT_PIN 10   # PC0
+BRD_BOOT_DELAY 3000   # wait for CAN peripherals
+CAN_P1_DRIVER 1   # CAN1 on (CUAV NEO 3 on DroneCAN)
+SERIAL1_BAUD 115   # Telem1
+SERIAL3_OPTIONS 8   # GPS1 UART4 TX/RX swap
+SERIAL5_PROTOCOL 23   # USART1 RC in (SBUS)
