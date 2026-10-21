@@ -50,13 +50,17 @@ define BOOTLOADER_DEBUG SD7
 
 
 # --- LEDs -------------------------------------------------------------------
-# Active low, hence HAL_LED_ON 0. Note the bootloader uses HAL_LED_ON,
-# NOT HAL_GPIO_LED_ON -- different macro, different rules.
-PI5 LED_ACTIVITY   OUTPUT HIGH   # blue
-PI6 LED_BOOTLOADER OUTPUT HIGH   # green
-PI7 LED_YELLOW     OUTPUT HIGH   # yellow
+# ACTIVE-HIGH: MCU pin -> 330R -> LED -> GND (FMU_LEDs, sheet 4)
+# Bootloader uses HAL_LED_ON (NOT HAL_GPIO_LED_ON) -- set it to 1 here too.
+#   LED_ACTIVITY   (blue)  : on while a command/data is being received
+#   LED_BOOTLOADER (green) : blinks while waiting, pattern on bad firmware
+#   LED_YELLOW             : not used by the bootloader, held off
 
-define HAL_LED_ON 0
+PI5 LED_ACTIVITY   OUTPUT LOW   # blue
+PI6 LED_BOOTLOADER OUTPUT LOW   # green
+PI7 LED_YELLOW     OUTPUT LOW   # yellow
+
+define HAL_LED_ON 1
 
 
 # --- chip selects -----------------------------------------------------------
@@ -64,8 +68,8 @@ define HAL_LED_ON 0
 # runs. No SPI bus is actually brought up here.
 PA3  BMI088_A_CS            CS
 PE10 BMI088_G_CS            CS
-PE12 ICM42688P_CS           CS
-PF1  MS4525DO_SS3AS015AP_CS CS
+PE12 ICM42688P_CS           CS   # held high, sensor disabled (SD issue)
+PF1  MS4525DO_SS3AS015AP_CS CS   # held high, waiting for driverPE15 MS5611_CS CS
 PE15 MS5611_CS              CS
 PG10 RM3100_CS              CS
 PH7  FLASH_CS               CS SPEED_VERYLOW

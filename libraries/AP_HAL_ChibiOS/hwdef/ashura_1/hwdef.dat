@@ -2,8 +2,8 @@
 #  Ashura 1  --  hwdef.dat
 #  White Bird / AL-ANKAA
 #
-#  MCU      : STM32H743VI / ZI  (2 MB flash, 1 MB RAM)
-#  Target   : ArduPlane 4.7.0
+#  MCU      : STM32H743IIT6 (LQFP176)  (2 MB flash, 1 MB RAM)
+#  Target   : ArduPlane 4.7.1
 #  Board ID : 1500
 #
 #  Processed by:
@@ -61,7 +61,7 @@ STM32_ST_USE_TIMER 2
 env OPTIMIZE -O2
 
 # [NOTE] If you ever run out of RAM, add:  env USE_ALT_RAM_MAP 1
-# env USE_ALT_RAM_MAP 1
+#        env USE_ALT_RAM_MAP 1
 #        That swaps the H743 RAM0 region from the 512 KB AXI SRAM
 #        (0x24000000) to the 256 KB D2 AHB SRAM (0x30000000). It is only
 #        useful for specific DMA layouts -- do not enable it speculatively.
@@ -78,6 +78,10 @@ PA12 OTG_FS_DP OTG1
 PA13 JTMS-SWDIO SWD
 PA14 JTCK-SWCLK SWD
 
+# USB VBUS detect (net USB_OTG_FS_VBUS). PA9 is 5V tolerant.
+# Sets the USB_CONNECTED bit in POWR.Flags (Mission Planner / .BIN log)
+PA9 VBUS INPUT OPENDRAIN
+
 
 # =============================================================================
 #  4. SERIAL PORTS
@@ -86,18 +90,18 @@ PA14 JTCK-SWCLK SWD
 #
 #     SERIAL0 = OTG1    USB console / MAVLink
 #     SERIAL1 = USART2  Telem 1        (with CTS/RTS)
-#     SERIAL2 = USART6  Telem 2        (with CTS/RTS)
-#     SERIAL3 = UART4   GPS 1
+#     SERIAL2 = USART6  Telem 2        (with CTS/RTS), RS232 
+#     SERIAL3 = UART4   GPS 1          Swap TX/RX
 #     SERIAL4 = USART3  GPS 2 / spare
-#     SERIAL5 = USART1  RC in (SBUS)   <-- has the level shifter
-#     SERIAL6 = UART8   spare
+#     SERIAL5 = USART1  RC in (SBUS)   <-- has the level shifter, for futaba RC 
+#     SERIAL6 = UART8   RC in for new receivers like TBS , ELRS , receivers can run in sbus and i.sbus
 #     SERIAL7 = UART7   debug console
 # =============================================================================
 
-SERIAL_ORDER OTG1 USART2 USART6 UART4 USART3 USART1 UART8 UART7 OTG2
+SERIAL_ORDER OTG1 USART2 USART6 UART4 USART3 USART1 UART8 UART7
 
 # default the 2nd interface to MAVLink2 until MissionPlanner updates drivers
-define HAL_OTG2_PROTOCOL SerialProtocol_MAVLink2
+# define HAL_OTG2_PROTOCOL SerialProtocol_MAVLink2
 
 # --- SERIAL1 / Telem 1 ---
 PD5 USART2_TX  USART2
@@ -105,13 +109,13 @@ PD6 USART2_RX  USART2
 PD3 USART2_CTS USART2
 PD4 USART2_RTS USART2
 
-# --- SERIAL2 / Telem 2 ---
+# --- SERIAL2 / Telem 2 --- RS232
 PC6  USART6_TX  USART6
 PC7  USART6_RX  USART6
 PG15 USART6_CTS USART6
 PG8  USART6_RTS USART6
 
-# --- SERIAL3 / GPS 1 ---
+# --- SERIAL3 / GPS 1 --- Swap TX/RX
 PD0 UART4_RX UART4 NODMA
 PD1 UART4_TX UART4 NODMA
 
@@ -126,10 +130,11 @@ PD9 USART3_RX USART3 NODMA
 #        logic level. USART1 works on this board because a level shifter
 #        is fitted here; UART7 has none and does NOT work with a Futaba
 #        R7008SB. Do not move RC input off USART1.
+
 PB14 USART1_TX USART1 NODMA
 PA10 USART1_RX USART1 NODMA
 
-# --- SERIAL6 / spare ---
+# --- SERIAL6 / spare --- RC in for new receivers like TBS , ELRS , receivers can run in sbus and i.sbus
 PE0 UART8_RX UART8
 PE1 UART8_TX UART8
 
@@ -143,9 +148,11 @@ PE8 UART7_TX UART7 NODMA
 # =============================================================================
 
 # SPI1 - BMI088 IMU (accel + gyro, two chip selects)
+
 PG11 SPI1_SCK  SPI1
 PG9  SPI1_MISO SPI1
 PD7  SPI1_MOSI SPI1
+
 # [FIX] PG11 used to be claimed a second time as ETH_RMII_TX_EN further
 #       down the file. chibios_hwdef.py aborts with
 #           Error: Pin PG11 redefined
@@ -153,7 +160,8 @@ PD7  SPI1_MOSI SPI1
 #       TX_EN has been moved to PB11 (section 11), which matches the
 #       board that is actually working.
 
-# SPI2 - ICM42688P IMU
+# SPI2 - ICM42688P IMU disable for now because it is not used by the current firmware have issue with SD card active
+
 #PI1 SPI2_SCK  SPI2
 #PI2 SPI2_MISO SPI2
 #PI3 SPI2_MOSI SPI2
@@ -168,9 +176,10 @@ PE2 SPI4_SCK  SPI4
 PE5 SPI4_MISO SPI4
 PE6 SPI4_MOSI SPI4
 
-# SPI5 - MS4525DO airspeed sensor
-PF7 SPI5_SCK  SPI5
-PF8 SPI5_MISO SPI5
+# SPI5 - MS4525DO_SS3AS015AP , disable watting to build driver for this sensor
+
+#PF7 SPI5_SCK  SPI5
+#PF8 SPI5_MISO SPI5
 #PF9 SPI5_MOSI SPI5
 
 # SPI6 - FRAM (parameter storage)
@@ -181,10 +190,11 @@ PG14 SPI6_MOSI SPI6
 # --- chip selects ---
 # CS pins are driven high automatically at boot so no device is selected
 # before its driver probes.
+
 PA3  BMI088_A_CS            CS
 PE10 BMI088_G_CS            CS
-#PE12 ICM42688P_CS           CS
-PF1  MS4525DO_SS3AS015AP_CS CS
+PE12 ICM42688P_CS           CS   # held high, sensor disabled (SD issue)
+PF1  MS4525DO_SS3AS015AP_CS CS   # held high, waiting for driver
 PE15 MS5611_CS              CS
 PG10 RM3100_CS              CS
 PH7  FLASH_CS               CS SPEED_VERYLOW
@@ -192,11 +202,12 @@ PH7  FLASH_CS               CS SPEED_VERYLOW
 # --- device table ---
 # Columns: name  bus  devid  cs-pin  mode  low-speed  high-speed
 # 'devid' only needs to be unique within one bus.
+
 SPIDEV bmi088_g     SPI1 DEVID1 BMI088_G_CS   MODE3 10*MHZ 10*MHZ
 SPIDEV bmi088_a     SPI1 DEVID1 BMI088_A_CS   MODE3 10*MHZ 10*MHZ
 #SPIDEV icm42688P    SPI2 DEVID1 ICM42688P_CS  MODE3 10*MHZ 10*MHZ
 SPIDEV rm3100-1     SPI3 DEVID1 RM3100_CS     MODE3  1*MHZ  1*MHZ
-SPIDEV ms5611_board SPI4 DEVID1 MS5611_CS     MODE3 20*MHZ 20*MHZ
+SPIDEV ms5611_board SPI4 DEVID1 MS5611_CS     MODE3 10*MHZ 10*MHZ
 SPIDEV ramtron      SPI6 DEVID1 FLASH_CS      MODE3  8*MHZ  8*MHZ
 
 # [NOTE] rm3100 is clocked at 1 MHz to match upstream CubeOrange. A local
@@ -221,7 +232,10 @@ PB9 I2C1_SDA I2C1
 PH4 I2C2_SCL I2C2
 PH5 I2C2_SDA I2C2
 
-# I2C3 - internal, FRAM / EEPROM
+# I2C3 - internal, AT24C128C EEPROM (16 KB, addr 0x50)
+#        [NOTE] No ArduPilot driver -- params live in SPI6 FRAM.
+#        Free for Lua use (board ID / serial / key), bus index 2.
+
 PA8 I2C3_SCL I2C3
 PH8 I2C3_SDA I2C3
 
@@ -231,6 +245,7 @@ PF15 I2C4_SDA I2C4
 
 # Bus index order seen by ArduPilot:
 #   bus 0 = I2C2 , bus 1 = I2C1 , bus 2 = I2C3 , bus 3 = I2C4
+
 I2C_ORDER I2C2 I2C1 I2C3 I2C4
 
 define HAL_I2C_MAX_CLOCK 400000
@@ -238,21 +253,14 @@ define HAL_I2C_MAX_CLOCK 400000
 # Bitmask of buses treated as internal (bit0 = bus 0 = I2C2).
 # [TODO] This marks only I2C2 as internal, yet I2C1 and I2C3 are also
 #        on-board. If you want external-compass auto-probe to skip them,
-#        this should be 0b0111 (=7). Left at 1 to preserve current
+#        this should be 0b0111 (=7). Left at 7 to preserve current
 #        behaviour -- change deliberately, not by accident.
+
 define HAL_I2C_INTERNAL_MASK 7
 
 
 # =============================================================================
 #  7. SENSOR DATA-READY PINS
-#
-#  [FIX] The previous file used the label DRDY5 twice (PF10 and PC2) and
-#        DRDY6 twice (PF5 and PB12). Labels become HAL_GPIO_PIN_<label>
-#        macros, so a duplicate silently redefines the first one.
-#        Renumbered so every label is unique.
-#  [NOTE] None of these are referenced by any driver in this hwdef -- they
-#        are declared only so the pins are not left floating. They cost
-#        nothing but they do nothing either.
 # =============================================================================
 
 PG0  DRDY1_BMI088_ACC1  INPUT
@@ -285,7 +293,8 @@ PF6  DRDY8_BMI088_GYRO4 INPUT
 # [NOTE] The pin is intentionally NOT declared in hwdef-bl.dat, so it is
 #        high-Z while the bootloader runs. If you measure it there you are
 #        measuring the external network, not the MCU.
-PI4 VDD_3V3_SENSORS_EN OUTPUT LOW
+
+  PI4 VDD_3V3_SENSORS_EN OUTPUT LOW
 
 # Not fitted on this board -- kept so the mapping is obvious if a
 # revision adds them.
@@ -329,8 +338,8 @@ PE14 TIM1_CH4  TIM1  PWM(12) GPIO(61)
 PH6  TIM12_CH1 TIM12 PWM(13) GPIO(62) NODMA
 PE9  TIM1_CH1  TIM1  PWM(14) GPIO(63)
 
-# Buzzer -- conflicts with ETH_MDIO on PA2, so it stays off.
-# PA2 TIM15_CH1 TIM15 GPIO(77) ALARM
+# Buzzer -- not used
+# PB10 BUZZER OUTPUT LOW GPIO(70)
 
 # PPM/SBUS on a timer input -- not used; RC comes in on USART1 (SERIAL5)
 # and PB4 is SPI3_MISO anyway.
@@ -347,7 +356,11 @@ PE9  TIM1_CH1  TIM1  PWM(14) GPIO(63)
 PC0  BATT_VOLTAGE_SENS ADC1 SCALE(1)
 PA0  RSSI_IN           ADC1 SCALE(1)
 PF11 VDD_5V_SENS       ADC1 SCALE(2)
-PF12 SCALED_V3V3       ADC1 SCALE(2)
+# PF12 = MCU 3V3 rail / 2 (R30/R26 10K/10K). NOT a useful measurement:
+# VREF+ is fed from the same 3V3 MCU rail (via L1), so it always reads 3.30 V.
+# Kept only so the pin sits in analog mode (it has a constant 1.65 V on it).
+# Real MCU rail voltage = MCU.MVolt in the log (internal VREFINT).
+PF12 SCALED_V3V3 ADC1 SCALE(2)
 
 # [TODO] Servo rail voltage sense.
 #        This label IS magic -- naming a pin FMU_SERVORAIL_VCC_SENS makes
@@ -429,9 +442,6 @@ PH14 CAN1_RX CAN1
 PB6  CAN2_TX CAN2
 PB5  CAN2_RX CAN2
 
-# Silent-mode control -- not fitted, and PH3 is the heater pin.
-# PH2 GPIO_CAN1_SILENT OUTPUT PUSHPULL SPEED_LOW LOW GPIO(70)
-
 
 # =============================================================================
 #  13. IMU HEATER
@@ -444,11 +454,11 @@ PB5  CAN2_RX CAN2
 #       ignored and GPIO 80 was never created. HAL_HEATER_GPIO_PIN 80
 #       then pointed at nothing and the heater never ran.
 #       CUAV X7 has the correct form: PA8 HEATER_EN OUTPUT LOW GPIO(80)
- PH3 HEATER_EN OUTPUT LOW GPIO(80)
+# PH3 HEATER_EN OUTPUT LOW GPIO(80)
 
-define HAL_HEATER_GPIO_PIN 80
-define HAL_HAVE_IMU_HEATER 1
-define HAL_IMU_TEMP_DEFAULT 45
+#define HAL_HEATER_GPIO_PIN 80
+#define HAL_HAVE_IMU_HEATER 1
+#define HAL_IMU_TEMP_DEFAULT 45
 
 # [NOTE] Add 'define HAL_HEATER_GPIO_ON 0' ONLY if the FET is high-side
 #        P-channel. Default is 1 (active high).
@@ -478,18 +488,12 @@ define HAL_IMU_TEMP_DEFAULT 45
  #IMU Invensensev3 SPI:icm42688P               ROTATION_PITCH_180
  
 
-# Bitmask of IMUs allowed to run in fast-sampling mode (0b101 = IMU 0 and 2).
 # define HAL_DEFAULT_INS_FAST_SAMPLE 1
 
 # [TODO] IMU ordering was never verified against a spare board. The order
 #        of these lines decides which IMU is instance 0 -- and instance 0
 #        is the one that drives the heater loop.
 
-# =============================================================================
-#  Time RTC UTC+3 time 
-# =============================================================================
-
-   define FAT_TZ_OFFSET_SEC 10800
 
 # =============================================================================
 #  15. BAROMETER
@@ -509,7 +513,7 @@ BARO MS5611 SPI:ms5611_board
 
 # Allows boot to continue with no baro detected. Useful on the bench;
 # an arming check still stops you flying without one.
-define HAL_BARO_ALLOW_INIT_NO_BARO
+# define HAL_BARO_ALLOW_INIT_NO_BARO
 # [FIX] this define appeared twice in the previous file.
 
 
@@ -559,9 +563,22 @@ define HAL_OS_FATFS_IO 1
 define HAL_BOARD_LOG_DIRECTORY     "/APM/LOGS"
 define HAL_BOARD_TERRAIN_DIRECTORY "/APM/TERRAIN"
 
+# =============================================================================
+#  Time RTC UTC+3 time 
+# =============================================================================
+
+ define FAT_TZ_OFFSET_SEC 10800
 
 # =============================================================================
-#  19. PARAMETER STORAGE  (FRAM on SPI6)
+
+# =============================================================================
+#  19. PARAMETER STORAGE  (FRAM FM25V10, 128 KB, on SPI6 -- SPIDEV ramtron)
+#
+#  [NOTE] AP_RAMTRON auto-detects FM25V10 (RDID 0x24/0x00).
+#  [NOTE] 32 KB is the largest StorageManager layout (params, mission, rally,
+#         fence, keys, CAN DNA). The remaining 96 KB of the FRAM is unused.
+#  [NOTE] Never change HAL_STORAGE_SIZE on boards already in service --
+#         the layout moves and stored params/missions are lost.
 # =============================================================================
 
 define HAL_WITH_RAMTRON 1
@@ -601,10 +618,7 @@ DMA_NOSHARE  SPI1*  TIM*UP*
 #  22. NOT FITTED / FUTURE
 # =============================================================================
 
-# Safety switch
+# Safety switch -- not used
 # define HAL_HAVE_SAFETY_SWITCH 1
-# PI14 LED_SAFETY OUTPUT
-# PI13 SAFETY_IN  INPUT PULLDOWN
-
-# Sagetech MXS ADSB transponder
-# define HAL_ADSB_SAGETECH_MXS_ENABLED HAL_ADSB_ENABLED
+# PE4 LED_SAFETY OUTPUT
+# PE3 SAFETY_IN  INPUT PULLDOWN
